@@ -20,6 +20,9 @@ An example- Pass_3 found that many firms had some sort of sustainable goal but w
 a rating of high confidence but noted that there are most likely goals missing. 
 Current Model- Claude Sonnet 4-6. 
 
+The latest outputs can be found here: 
+https://drive.google.com/drive/folders/1NIxNe_B3JqpZuQgqfuBQKVYZ9fmSol6p?usp=sharing
+
 
 Models Used
 Prior to May 17th - Claude Sonnet 4.5
