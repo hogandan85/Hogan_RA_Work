@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fund Review Viewer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', system-ui, sans-serif; color: #1a1a2e; height: 100vh; overflow: hidden; }
+
+  /* Layout */
+  #app { display: flex; height: 100vh; }
+  #sidebar { width: 300px; min-width: 300px; border-right: 1px solid #e8e8ec; display: flex; flex-direction: column; background: #fafafa; }
+  #main { flex: 1; overflow-y: auto; padding: 24px 32px; }
+
+  /* Upload screen */
+  #upload-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+  #upload-screen .icon { font-size: 56px; margin-bottom: 16px; opacity: 0.25; }
+  #upload-screen h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  #upload-screen p { font-size: 13px; color: #888; margin-bottom: 24px; text-align: center; max-width: 340px; line-height: 1.5; }
+  .upload-btn { display: inline-block; padding: 10px 28px; background: #1a1a2e; color: #fff; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; border: none; }
+  .upload-btn:hover { background: #2d2d4e; }
+  .upload-btn-sm { padding: 6px 0; font-size: 11px; display: block; text-align: center; width: 100%; border-radius: 6px; }
+  input[type="file"] { display: none; }
+
+  /* Sidebar sections */
+  .sb-section { padding: 10px 12px; border-bottom: 1px solid #e8e8ec; }
+  .filter-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { padding: 3px 8px; font-size: 10px; font-weight: 500; border: 1px solid #ddd; border-radius: 4px; background: #fff; color: #666; cursor: pointer; }
+  .chip.active { background: #1a1a2e; color: #fff; font-weight: 700; border-color: #1a1a2e; }
+  #search-input { width: 100%; padding: 7px 10px; font-size: 12px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-family: inherit; }
+  #search-input:focus { border-color: #1a1a2e; }
+
+  /* Fund list */
+  #fund-list { flex: 1; overflow-y: auto; }
+  .fund-item { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.1s; }
+  .fund-item:hover { background: #f0f0f4; }
+  .fund-item.selected { background: #e8eaf6; }
+  .fund-item-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+  .fund-item-meta { display: flex; gap: 6px; align-items: center; font-size: 10px; color: #888; }
+  .conf-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+  .flag-icon { color: #e65100; font-weight: 700; margin-left: auto; }
+  #list-counter { padding: 8px 12px; border-top: 1px solid #e8e8ec; font-size: 10px; color: #999; text-align: center; }
+
+  /* Card */
+  .card-header h1 { font-family: 'DM Serif Display', Georgia, serif; font-size: 22px; font-weight: 700; line-height: 1.3; margin-bottom: 4px; }
+  .card-header .fund-id { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #888; margin-bottom: 10px; }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+
+  .section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #999; margin-bottom: 8px; }
+  .summary-box { background: #f8f9fa; border-left: 3px solid #ccc; padding: 10px 14px; border-radius: 0 6px 6px 0; font-size: 13px; line-height: 1.65; color: #333; white-space: pre-wrap; word-break: break-word; margin-bottom: 22px; }
+
+  .obj-card { border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; border: 1px solid transparent; }
+  .obj-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .obj-header-left { display: flex; gap: 6px; align-items: center; }
+  .obj-num { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #666; }
+  .obj-text { font-size: 14px; line-height: 1.5; font-weight: 500; margin-bottom: 6px; }
+  .obj-detail { font-size: 11px; color: #666; line-height: 1.5; margin-bottom: 2px; }
+  .obj-detail strong { font-weight: 600; }
+
+  .nav-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .nav-btn { padding: 5px 16px; border-radius: 6px; border: 1px solid #ddd; background: #fff; cursor: pointer; font-size: 12px; font-family: inherit; }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+  .nav-btn:not(:disabled):hover { background: #f5f5f5; }
+  .nav-counter { font-size: 12px; color: #999; }
+
+  .empty-state { text-align: center; padding-top: 80px; color: #999; font-size: 13px; font-style: italic; }
+
+  /* Keyboard hint */
+  .kb-hint { padding: 6px 12px; border-top: 1px solid #e8e8ec; font-size: 9px; color: #bbb; text-align: center; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Upload screen (shown when no data loaded) -->
+  <div id="upload-screen">
+    <div class="icon">📋</div>
+    <h2>Fund Review Viewer</h2>
+    <p>Upload any of the sorted review Excel files to browse funds as readable cards. Use arrow keys to navigate.</p>
+    <label class="upload-btn">
+      Upload .xlsx
+      <input type="file" accept=".xlsx,.xls" onchange="handleFile(event)">
+    </label>
+  </div>
+
+  <!-- Main app (hidden until file loaded) -->
+  <div id="sidebar" style="display:none">
+    <div class="sb-section">
+      <label class="upload-btn upload-btn-sm">
+        Upload different file
+        <input type="file" accept=".xlsx,.xls" onchange="handleFile(event)">
+      </label>
+    </div>
+    <div class="sb-section">
+      <div id="filter-chips" class="filter-chips"></div>
+    </div>
+    <div class="sb-section">
+      <input type="text" id="search-input" placeholder="Search name or ID..." oninput="onSearch()">
+    </div>
+    <div id="fund-list"></div>
+    <div id="list-counter"></div>
+    <div class="kb-hint">↑↓ arrow keys to navigate</div>
+  </div>
+  <div id="main" style="display:none"></div>
+</div>
+
+<script>
+// === State ===
+let allFunds = [];
+let filtered = [];
+let selectedIdx = 0;
+let currentFilter = 'all';
+
+const CONF_COLORS = {
+  high:   { bg: '#e8f5e9', text: '#2e7d32' },
+  medium: { bg: '#fff8e1', text: '#f57f17' },
+  low:    { bg: '#fbe9e7', text: '#bf360c' },
+  none:   { bg: '#f3e5f5', text: '#6a1b9a' },
+  error:  { bg: '#ffebee', text: '#c62828' },
+};
+
+const STATUS_COLORS = {
+  VERIFIED: { bg: '#e8f5e9', border: '#4caf50', text: '#2e7d32' },
+  FLAGGED:  { bg: '#fff3e0', border: '#ff9800', text: '#e65100' },
+};
+
+// === Parse ===
+function parseFund(row) {
+  const objectives = [];
+  for (let i = 1; i <= 5; i++) {
+    const text = row[`Objective_${i}`];
+    if (text && text !== '' && text !== 'None' && text != null) {
+      objectives.push({
+        number: i,
+        text: text,
+        type: row[`Objective_${i}_Type`] || '',
+        status: row[`Objective_${i}_Status`] || '',
+        verifiedIn: row[`Objective_${i}_Verified_In`] || '',
+        typeChanged: row[`Objective_${i}_Type_Changed`] === true || row[`Objective_${i}_Type_Changed`] === 'TRUE',
+        notes: row[`Objective_${i}_Notes`] || '',
+      });
+    }
+  }
+  return {
+    fundId: row.FundId,
+    name: row.Fund_Name || 'Unknown',
+    numObjectives: row.Number_of_Objectives || 0,
+    confidence: row.Overall_Confidence || 'unknown',
+    summary: row.Verification_Summary || '',
+    hasFlagged: row.Has_Flagged === true || row.Has_Flagged === 'TRUE',
+    objectives,
+  };
+}
+
+// === File handling ===
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const wb = XLSX.read(evt.target.result, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws);
+    allFunds = rows.map(parseFund);
+    selectedIdx = 0;
+    currentFilter = 'all';
+    document.getElementById('search-input').value = '';
+    document.getElementById('upload-screen').style.display = 'none';
+    document.getElementById('sidebar').style.display = 'flex';
+    document.getElementById('main').style.display = 'block';
+    buildFilters();
+    applyFilter();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// === Filters ===
+function buildFilters() {
+  const counts = {};
+  allFunds.forEach(f => { counts[f.confidence] = (counts[f.confidence] || 0) + 1; });
+  const container = document.getElementById('filter-chips');
+  let html = `<button class="chip active" onclick="setFilter('all')">all (${allFunds.length})</button>`;
+  Object.keys(counts).sort().forEach(k => {
+    html += `<button class="chip" onclick="setFilter('${k}')">${k} (${counts[k]})</button>`;
+  });
+  container.innerHTML = html;
+}
+
+function setFilter(f) {
+  currentFilter = f;
+  selectedIdx = 0;
+  document.querySelectorAll('.chip').forEach(el => {
+    el.classList.toggle('active', el.textContent.startsWith(f));
+  });
+  applyFilter();
+}
+
+function onSearch() {
+  selectedIdx = 0;
+  applyFilter();
+}
+
+function applyFilter() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  filtered = allFunds.filter(f => {
+    if (currentFilter !== 'all' && f.confidence !== currentFilter) return false;
+    if (q && !f.name.toLowerCase().includes(q) && !String(f.fundId).includes(q)) return false;
+    return true;
+  });
+  renderList();
+  renderCard();
+}
+
+// === Render list ===
+function renderList() {
+  const container = document.getElementById('fund-list');
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;font-size:12px">No matching funds.</div>';
+    document.getElementById('list-counter').textContent = `0 of ${allFunds.length} funds`;
+    return;
+  }
+  let html = '';
+  filtered.forEach((f, i) => {
+    const conf = CONF_COLORS[f.confidence] || CONF_COLORS.error;
+    html += `
+      <div class="fund-item ${i === selectedIdx ? 'selected' : ''}" onclick="selectFund(${i})">
+        <div class="fund-item-name">${esc(f.name)}</div>
+        <div class="fund-item-meta">
+          <span class="conf-dot" style="background:${conf.text}"></span>
+          ${f.confidence}
+          <span style="margin-left:auto">${f.numObjectives} obj</span>
+          ${f.hasFlagged ? '<span class="flag-icon">⚑</span>' : ''}
+        </div>
+      </div>`;
+  });
+  container.innerHTML = html;
+  document.getElementById('list-counter').textContent = `${filtered.length} of ${allFunds.length} funds`;
+
+  // Scroll selected into view
+  const items = container.querySelectorAll('.fund-item');
+  if (items[selectedIdx]) items[selectedIdx].scrollIntoView({ block: 'nearest' });
+}
+
+function selectFund(i) {
+  selectedIdx = i;
+  renderList();
+  renderCard();
+}
+
+// === Render card ===
+function renderCard() {
+  const main = document.getElementById('main');
+  if (filtered.length === 0) {
+    main.innerHTML = '<div class="empty-state">No funds to display.</div>';
+    return;
+  }
+  const f = filtered[selectedIdx];
+  if (!f) { main.innerHTML = ''; return; }
+
+  const conf = CONF_COLORS[f.confidence] || CONF_COLORS.error;
+
+  let html = `
+    <div class="nav-row">
+      <button class="nav-btn" onclick="nav(-1)" ${selectedIdx === 0 ? 'disabled' : ''}>← Prev</button>
+      <span class="nav-counter">${selectedIdx + 1} / ${filtered.length}</span>
+      <button class="nav-btn" onclick="nav(1)" ${selectedIdx >= filtered.length - 1 ? 'disabled' : ''}>Next →</button>
+    </div>
+    <div class="card-header">
+      <h1>${esc(f.name)}</h1>
+      <div class="fund-id">Fund ID: ${esc(String(f.fundId))}</div>
+      <div class="badges">
+        <span class="badge" style="background:${conf.bg};color:${conf.text};border:1px solid ${conf.text}22">Confidence: ${f.confidence}</span>
+        <span class="badge" style="background:#e3f2fd;color:#1565c0;border:1px solid #1565c022">${f.numObjectives} objective${f.numObjectives !== 1 ? 's' : ''}</span>
+        ${f.hasFlagged ? '<span class="badge" style="background:#fff3e0;color:#e65100;border:1px solid #e6510022">Has flagged</span>' : ''}
+      </div>
+    </div>`;
+
+  if (f.summary) {
+    html += `
+      <div class="section-label">Verification Summary</div>
+      <div class="summary-box" style="border-left-color:${conf.text}44">${esc(f.summary)}</div>`;
+  }
+
+  if (f.objectives.length > 0) {
+    html += '<div class="section-label">Objectives</div>';
+    f.objectives.forEach(obj => {
+      const sc = STATUS_COLORS[obj.status] || STATUS_COLORS.VERIFIED;
+      const typeBg = obj.type === 'sustainable' ? '#e8f5e9' : '#e3f2fd';
+      const typeColor = obj.type === 'sustainable' ? '#2e7d32' : '#1565c0';
+
+      html += `
+        <div class="obj-card" style="background:${sc.bg}66;border-color:${sc.border}33">
+          <div class="obj-header">
+            <div class="obj-header-left">
+              <span class="obj-num">#${obj.number}</span>
+              <span class="badge" style="background:${typeBg};color:${typeColor};border:1px solid ${typeColor}22">${obj.type}</span>
+              ${obj.typeChanged ? '<span class="badge" style="background:#fff3e0;color:#e65100;border:1px solid #e6510022">Type changed</span>' : ''}
+            </div>
+            <span class="badge" style="background:${sc.bg};color:${sc.text};border:1px solid ${sc.border}33">${obj.status}</span>
+          </div>
+          <div class="obj-text">"${esc(obj.text)}"</div>
+          ${obj.verifiedIn ? `<div class="obj-detail"><strong>Found in:</strong> ${esc(obj.verifiedIn)}</div>` : ''}
+          ${obj.notes ? `<div class="obj-detail"><strong>Notes:</strong> ${esc(obj.notes)}</div>` : ''}
+        </div>`;
+    });
+  } else if (f.confidence !== 'error') {
+    html += '<div class="empty-state" style="padding-top:30px">No objectives extracted for this fund.</div>';
+  }
+
+  main.innerHTML = html;
+  main.scrollTop = 0;
+}
+
+function nav(dir) {
+  const newIdx = selectedIdx + dir;
+  if (newIdx >= 0 && newIdx < filtered.length) {
+    selectedIdx = newIdx;
+    renderList();
+    renderCard();
+  }
+}
+
+// === Keyboard nav ===
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); nav(1); }
+  if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); nav(-1); }
+});
+
+// === Util ===
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
